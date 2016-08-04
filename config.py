@@ -1,0 +1,5 @@
+SSID='WLAN SSID'
+PW='WLAN PW'
+MQTT_SERVER='192.168.123.45'
+MQTT_TOPIC=b"ampswitch"
+MQTT_TOPIC_STATE=b"ampswitch/state"
