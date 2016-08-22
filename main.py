@@ -28,18 +28,13 @@ def connect_wifi():
   global sta_if,ap_if
   print('connecting to network...')
   sta_if.connect(SSID,PW)
-  time.sleep(2)
-  if not sta_if.isconnected():
-    print('could not connect!')
-    ap_if.active(True)
-  else:
-    print('connection success: ', sta_if.ifconfig())
-    ap_if.active(False)
-    connect_mqtt()
+  while not sta_if.isconnected():
+    pass
+  print('connection success: ', sta_if.ifconfig())
+  ap_if.active(False)
 
 def connect_mqtt():
   global mqtt
-  mqtt.set_callback(mqtt_input)
   mqtt.connect()
   mqtt.subscribe(MQTT_TOPIC)
   print("MQTT connected to %s, subscribed to %s topic" % (MQTT_SERVER, MQTT_TOPIC))
@@ -89,15 +84,29 @@ def mqtt_input(topic, msg):
     new_amp = 1
 
 def run():
+  fail = False
   while True:
-    if not sta_if.isconnected():
-      connect_wifi()
-    else:
-      mqtt.check_msg()
-  
     if new_amp != act_amp:
       set_amp(new_amp)
 
+    try:
+      mqtt.check_msg()
+    except OSError:
+      print('MQTT check msg failed')
+      fail = True
+  
+    if fail: # Wifi was down - https://forum.micropython.org/viewtopic.php?f=16&t=2163
+      try:
+        connect_mqtt()
+        fail = False
+      except OSError: # Wifi is still down
+        print('MQTT reconnect failed')
+        time.sleep(2)
+
+
 set_amp(act_amp)
 switch.irq(trigger=machine.Pin.IRQ_FALLING, handler=switch_pressed)
+mqtt.set_callback(mqtt_input)
+connect_wifi()
+connect_mqtt()
 run()
